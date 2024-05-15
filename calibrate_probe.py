@@ -78,8 +78,11 @@ class PrinterController:
         z_heights = []
         for run in range(3):
             self.message(f"Starting fine range check (run {run + 1}/3)...")
-            self.z_height = self.trigger_height + 0.2
+            self.z_height = self.trigger_height + COARSE_STEP;
             self.send_command("G90")
+            self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
+            time.sleep(3)
+            self.send_command(PROBE_DEPLOY_CMD)
             self.send_command(f"G0 Z{self.z_height}")
             self.send_command("G91")
             while not self.probe_triggered() and self.z_height > 0:
@@ -89,8 +92,6 @@ class PrinterController:
             z_heights.append(self.z_height)
             self.send_command(PROBE_STOW_CMD)
             time.sleep(2.190)
-            self.send_command("G0 F500 Z7")
-            time.sleep(3)
         final_z_height = sum(z_heights) / len(z_heights)
         self.message(f"Finished. Final Z-Probe Offset: {final_z_height}")
         return final_z_height
