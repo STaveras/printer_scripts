@@ -31,12 +31,12 @@ class PrinterController:
         time.sleep(0.1)
         responses = []
         start_time = time.time()
-        print(f"{command}:")
+        print(f"\n{command}:")
         while True:
             if self.ser.in_waiting > 0:
                 response = self.ser.readline().decode().strip()
                 responses.append(response)
-                print(f"{response}")
+                print(f"\t{response}")
                 if response.startswith("ok"):
                     break
             if time.time() - start_time > timeout:
