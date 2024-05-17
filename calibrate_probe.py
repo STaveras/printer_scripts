@@ -12,6 +12,7 @@ FINE_STEP = 0.01
 SAFE_Z_HEIGHT = 7.0
 PROBE_DEPLOY_CMD = "M280 P0 S10"
 PROBE_STOW_CMD = "M280 P0 S160"
+PROBE_STOW_DELAY = 2.190
 
 class PrinterController:
     def __init__(self, port, baud_rate, timeout):
@@ -21,7 +22,6 @@ class PrinterController:
 
     def message(self, msg):
         self.send_command(f"M117 {msg}")
-        print(msg)
 
     def send_command(self, command, timeout=5):
         """Send command to the printer and wait for the response."""
@@ -64,6 +64,8 @@ class PrinterController:
 
     def coarse_probe(self):
         self.message("Starting coarse range check...")
+        self.send_command(PROBE_DEPLOY_CMD)
+        self.send_command("G91")
         while not self.probe_triggered() and self.z_height > 0:
             self.send_command(f"G0 Z-{COARSE_STEP}")
             self.z_height -= COARSE_STEP
@@ -73,6 +75,8 @@ class PrinterController:
             response = self.send_command("M114")
             self.trigger_height = float(response.split('Z:')[1].split()[0])
         self.message(f"Finished. Current Z height: {self.z_height}")
+        self.send_command(PROBE_STOW_CMD)
+        time.sleep(PROBE_STOW_DELAY)
 
     def fine_probe(self):
         z_heights = []
@@ -91,7 +95,7 @@ class PrinterController:
                 print(self.z_height)
             z_heights.append(self.z_height)
             self.send_command(PROBE_STOW_CMD)
-            time.sleep(2.190)
+            time.sleep(PROBE_STOW_DELAY)
         final_z_height = sum(z_heights) / len(z_heights)
         self.message(f"Finished. Final Z-Probe Offset: {final_z_height}")
         return final_z_height
@@ -105,26 +109,24 @@ class PrinterController:
             self.send_command(f"M140 S{BED_TEMP_TARGET}")
             self.message("Heating bed...")
             self.wait_for_temperature(BED_TEMP_TARGET)
+            time.sleep(3)
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(1)
             self.send_command("G0 F5000 X156.3 Y124.4")
             time.sleep(3)
-            self.send_command(PROBE_DEPLOY_CMD)
-            self.send_command("G91")
+
             self.coarse_probe()
-            self.send_command(PROBE_STOW_CMD)
-            time.sleep(2.190)
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(3)
             final_z_height = self.fine_probe()
             self.send_command(f"M851 Z-{final_z_height}")
-            self.message(f"Z-Probe offset set to: -{final_z_height}")
             self.send_command("M140 S0")
             time.sleep(1)
             self.send_command("M500")
             time.sleep(5)
+            self.message(f"Probe Z-offset set to: -{final_z_height}")
         except serial.SerialException as e:
             print(f"Serial communication error: {e}")
         except Exception as e:
