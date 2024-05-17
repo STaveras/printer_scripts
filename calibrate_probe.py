@@ -7,10 +7,10 @@ import argparse
 SERIAL_PORT = '/dev/ttyACM0'  # Change to your actual serial port
 BAUD_RATE = 115200
 TIMEOUT = 10
-BED_TEMP_TARGET = 65
 COARSE_STEP = 0.2
 FINE_STEP = 0.01
 SAFE_Z_HEIGHT = 7.0
+DEFAULT_BED_TARGET_TEMP = 65
 PROBE_DEPLOY_CMD = "M280 P0 S10"
 PROBE_STOW_CMD = "M280 P0 S160"
 PROBE_STOW_DELAY = 2.190
@@ -107,9 +107,9 @@ class PrinterController:
             self.send_command("M420 S0 Z0")
             self.send_command("G28")
             time.sleep(10)
-            self.send_command(f"M140 S{BED_TEMP_TARGET}")
+            self.send_command(f"M140 S{bed_temp_target}")
             self.message("Heating bed...")
-            self.wait_for_temperature(BED_TEMP_TARGET)
+            self.wait_for_temperature(bed_temp_target)
             time.sleep(3)
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
@@ -143,11 +143,23 @@ class PrinterController:
             self.ser.close()
             sys.exit()
 
+def help_output():
+    return """usage: calibrate_probe.py [-h] [--bed-temp BED_TEMP] [--disable-bed] [--run-g29]
+
+                Z-Probe calibration
+
+                optional arguments:
+                -h, --help            show this help message and exit
+                --bed-temp BED_TEMP   Target bed temperature in Celsius
+                --disable-bed         Disable bed heating after calibration
+                --run-g29             Run G29 P1 to repopulate build surface mesh data"""
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Z-Probe calibration')
-    parser.add_argument('--bed-temp', type=int, default=65, help='Target bed temperature in Celsius')
+    parser.add_argument('--bed-temp', type=int, default=DEFAULT_BED_TARGET_TEMP, help='Target bed temperature in Celsius')
     parser.add_argument('--disable-bed', action='store_true', help='Disable bed heating after calibration')
     parser.add_argument('--run-g29', action='store_true', help='Run G29 P1 to repopulate build surface mesh data')
+    parser.add_argument('--help', action='store_true', help=help_output())
     args = parser.parse_args()
 
     printer = PrinterController(SERIAL_PORT, BAUD_RATE, TIMEOUT)
