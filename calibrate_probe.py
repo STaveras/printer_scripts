@@ -31,15 +31,16 @@ class PrinterController:
         time.sleep(0.1)
         responses = []
         start_time = time.time()
+        print(f"{command}:")
         while True:
             if self.ser.in_waiting > 0:
                 response = self.ser.readline().decode().strip()
                 responses.append(response)
+                print(f"{response}")
                 if response.startswith("ok"):
                     break
             if time.time() - start_time > timeout:
                 break
-        print(f"{command}: {responses}")
         return '\n'.join(responses)
 
     def get_probe_status(self):
@@ -75,9 +76,9 @@ class PrinterController:
             self.message("Probe triggered!")
             response = self.send_command("M114")
             self.trigger_height = float(response.split('Z:')[1].split()[0])
+            self.send_command(PROBE_STOW_CMD)
+            time.sleep(PROBE_STOW_DELAY)
         self.message(f"Finished. Current Z height: {self.z_height}")
-        self.send_command(PROBE_STOW_CMD)
-        time.sleep(PROBE_STOW_DELAY)
 
     def fine_probe(self):
         z_heights = []
@@ -116,7 +117,6 @@ class PrinterController:
             time.sleep(1)
             self.send_command("G0 F5000 X156.3 Y124.4")
             time.sleep(3)
-
             self.coarse_probe()
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
@@ -127,7 +127,7 @@ class PrinterController:
                 self.send_command("M140 S0")
                 time.sleep(1)
             if run_g29:
-                self.send_command("G29 P1")
+                self.send_command("G29 P1", timeout=600) # This is usually around how long it takes for a full repopulate
                 for r in range(2): # For two axes (X, Y)
                     self.send_command("G29 P3")
                     print(r)
