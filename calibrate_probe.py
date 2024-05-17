@@ -143,23 +143,11 @@ class PrinterController:
             self.ser.close()
             sys.exit()
 
-def help_output():
-    return """usage: calibrate_probe.py [-h] [--bed-temp BED_TEMP] [--disable-bed] [--run-g29]
-
-                Z-Probe calibration
-
-                optional arguments:
-                -h, --help            show this help message and exit
-                --bed-temp BED_TEMP   Target bed temperature in Celsius
-                --disable-bed         Disable bed heating after calibration
-                --run-g29             Run G29 P1 to repopulate build surface mesh data"""
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Z-Probe calibration')
     parser.add_argument('--bed-temp', type=int, default=DEFAULT_BED_TARGET_TEMP, help='Target bed temperature in Celsius')
     parser.add_argument('--disable-bed', action='store_true', help='Disable bed heating after calibration')
     parser.add_argument('--run-g29', action='store_true', help='Run G29 P1 to repopulate build surface mesh data')
-    parser.add_argument('--help', action='store_true', help=help_output())
     args = parser.parse_args()
 
     printer = PrinterController(SERIAL_PORT, BAUD_RATE, TIMEOUT)
