@@ -1,6 +1,7 @@
 import serial
 import time
 import sys
+import argparse
 
 # Constants
 SERIAL_PORT = '/dev/ttyACM0'  # Change to your actual serial port
@@ -100,7 +101,7 @@ class PrinterController:
         self.message(f"Finished. Final Z-Probe Offset: {final_z_height}")
         return final_z_height
 
-    def run(self):
+    def run(self, bed_temp_target, disable_bed, run_g29):
         try:
             self.message("Starting Z-Probe calibration...")
             self.send_command("M420 S0 Z0")
@@ -122,7 +123,14 @@ class PrinterController:
             time.sleep(3)
             final_z_height = self.fine_probe()
             self.send_command(f"M851 Z-{final_z_height}")
-            self.send_command("M140 S0")
+            if disable_bed:
+                self.send_command("M140 S0")
+                time.sleep(1)
+            if run_g29:
+                self.send_command("G29 P1")
+                for r in range(2): # For two axes (X, Y)
+                    self.send_command("G29 P3")
+                    print(r)
             time.sleep(1)
             self.send_command("M500")
             time.sleep(5)
@@ -136,5 +144,11 @@ class PrinterController:
             sys.exit()
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Z-Probe calibration')
+    parser.add_argument('--bed-temp', type=int, default=65, help='Target bed temperature in Celsius')
+    parser.add_argument('--disable-bed', action='store_true', help='Disable bed heating after calibration')
+    parser.add_argument('--run-g29', action='store_true', help='Run G29 P1 to repopulate build surface mesh data')
+    args = parser.parse_args()
+
     printer = PrinterController(SERIAL_PORT, BAUD_RATE, TIMEOUT)
-    printer.run()
+    printer.run(args.bed_temp, args.disable_bed, args.run_g29)
