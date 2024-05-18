@@ -130,7 +130,8 @@ class PrinterController:
                 self.send_command("G29 P1", timeout=600) # This is usually around how long it takes for a full repopulate
                 for r in range(2): # For two axes (X, Y)
                     self.send_command("G29 P3")
-                    print(r)
+                    print((["X", "Y"][r]))
+                    time.sleep(1)
             time.sleep(1)
             self.send_command("M500")
             time.sleep(5)
