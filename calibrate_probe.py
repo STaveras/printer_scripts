@@ -11,6 +11,7 @@ COARSE_STEP = 0.2
 FINE_STEP = 0.01
 SAFE_Z_HEIGHT = 7.0
 DEFAULT_BED_TARGET_TEMP = 65
+DEFAULT_DIMENSIONS = [235, 235, 235]
 PROBE_DEPLOY_CMD = "M280 P0 S10"
 PROBE_STOW_CMD = "M280 P0 S160"
 PROBE_STOW_DELAY = 2.190
@@ -20,6 +21,9 @@ class PrinterController:
         self.ser = serial.Serial(port, baud_rate, timeout=timeout)
         self.z_height = SAFE_Z_HEIGHT
         self.trigger_height = 0.0
+        self.bed_width = None
+        self.bed_height = None
+        self.probe_offsets = {"X": 0.0, "Y": 0.0, "Z": 0.0}
 
     def message(self, msg):
         self.send_command(f"M117 {msg}")
@@ -27,7 +31,7 @@ class PrinterController:
     def send_command(self, command, timeout=5):
         """Send command to the printer and wait for the response."""
         self.ser.reset_input_buffer()
-        self.ser.write((command + '\n').encode())
+        self.ser.write((command.upper() + '\n').encode())
         time.sleep(0.1)
         responses = []
         start_time = time.time()
@@ -43,6 +47,30 @@ class PrinterController:
                 break
         return '\n'.join(responses)
 
+    def get_printer_information(self):
+        bed_response = self.send_command("M115")
+        for line in bed_response.split('\n'):
+            if "area:{full:{min:" in line:
+                dimensions = line.split('max:{')[1].split('}')[0].split(',')
+                for dimension in dimensions:
+                    if 'x:' in dimension:
+                        self.bed_width = float(dimension.split(':')[1])
+                    if 'y:' in dimension:
+                        self.bed_height = float(dimension.split(':')[1])
+                break
+        probe_response = self.send_command("M851")
+        for line in probe_response.split('\n'):
+            if line.startswith("M851"):
+                parts = line.split()
+                for part in parts:
+                    if part.startswith("X"):
+                        self.probe_offsets["X"] = float(part[1:])
+                    elif part.startswith("Y"):
+                        self.probe_offsets["Y"] = float(part[1:])
+                    elif part.startswith("Z"):
+                        self.probe_offsets["Z"] = float(part[1:])
+                break
+
     def get_probe_status(self):
         response = self.send_command("M119")
         for line in response.split('\n'):
@@ -54,6 +82,12 @@ class PrinterController:
 
     def probe_triggered(self):
         return self.get_probe_status() == "triggered"
+    
+    def calculate_center_position(self):
+        """Calculates the center position of the bed considering probe offsets."""
+        center_x = (self.bed_width / 2) - self.probe_offsets["X"]
+        center_y = (self.bed_height / 2) - self.probe_offsets["Y"]
+        return center_x, center_y
 
     def wait_for_temperature(self, target_temp):
         while True:
@@ -105,6 +139,12 @@ class PrinterController:
     def run(self, bed_temp_target, disable_bed, run_g29):
         try:
             self.message("Starting Z-Probe calibration...")
+
+            self.get_printer_information()
+
+            center_x, center_y = self.calculate_center_position()
+            print(f"Center: {center_x}, {center_y}")
+
             self.send_command("M420 S0 Z0")
             self.send_command("G28")
             time.sleep(10)
@@ -115,7 +155,7 @@ class PrinterController:
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(1)
-            self.send_command("G0 F5000 X156.3 Y124.4")
+            self.send_command(f"G0 F5000 X{center_x} Y{center_y}")
             time.sleep(3)
             self.coarse_probe()
             self.send_command("G90")
