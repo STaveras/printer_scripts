@@ -11,7 +11,7 @@ COARSE_STEP = 0.2
 FINE_STEP = 0.01
 SAFE_Z_HEIGHT = 7.0
 DEFAULT_BED_TARGET_TEMP = 65
-DEFAULT_DIMENSIONS = [235, 235, 235]
+DEFAULT_DIMENSIONS = [235, 235, 235] # If your printer does not report geometry with M115, set these instead
 PROBE_DEPLOY_CMD = "M280 P0 S10"
 PROBE_STOW_CMD = "M280 P0 S160"
 PROBE_STOW_DELAY = 2.190
@@ -21,9 +21,9 @@ class PrinterController:
         self.ser = serial.Serial(port, baud_rate, timeout=timeout)
         self.z_height = SAFE_Z_HEIGHT
         self.trigger_height = 0.0
+        self.probe_offsets = {"X": 0.0, "Y": 0.0, "Z": 0.0}
         self.bed_width = None
         self.bed_height = None
-        self.probe_offsets = {"X": 0.0, "Y": 0.0, "Z": 0.0}
 
     def message(self, msg):
         self.send_command(f"M117 {msg}")
@@ -31,7 +31,7 @@ class PrinterController:
     def send_command(self, command, timeout=5):
         """Send command to the printer and wait for the response."""
         self.ser.reset_input_buffer()
-        self.ser.write((command.upper() + '\n').encode())
+        self.ser.write((command + '\n').encode())
         time.sleep(0.1)
         responses = []
         start_time = time.time()
@@ -58,6 +58,9 @@ class PrinterController:
                     if 'y:' in dimension:
                         self.bed_height = float(dimension.split(':')[1])
                 break
+        if self.bed_width is None or self.bed_height is None:
+            self.bed_width = DEFAULT_DIMENSIONS[0]
+            self.bed_height = DEFAULT_DIMENSIONS[1]
         probe_response = self.send_command("M851")
         for line in probe_response.split('\n'):
             if line.startswith("M851"):
