@@ -115,7 +115,7 @@ class PrinterController:
             self.trigger_height = float(response.split('Z:')[1].split()[0])
             self.send_command(PROBE_STOW_CMD)
             time.sleep(PROBE_STOW_DELAY)
-        self.message(f"Finished. Current Z height: {self.z_height}")
+        self.message(f"Z height: {self.z_height}")
 
     def fine_probe(self):
         z_heights = []
@@ -133,13 +133,13 @@ class PrinterController:
                 self.z_height -= FINE_STEP
                 print(self.z_height)
             z_heights.append(self.z_height)
+            self.message(f"Z height: {self.z_height}")
             self.send_command(PROBE_STOW_CMD)
-            time.sleep(PROBE_STOW_DELAY)
+            time.sleep(PROBE_STOW_DELAY)            
         final_z_height = sum(z_heights) / len(z_heights)
-        self.message(f"Finished. Final Z-Probe Offset: {final_z_height}")
         return final_z_height
 
-    def run(self, bed_temp_target, disable_bed, run_g29):
+    def run(self, bed_temp_target, disable_bed, run_g29, skip_homing):
         try:
             self.message("Starting Z-Probe calibration...")
 
@@ -149,7 +149,11 @@ class PrinterController:
             print(f"Center: {center_x}, {center_y}")
 
             self.send_command("M420 S0 Z0")
-            self.send_command("G28")
+            
+            if not skip_homing:
+                self.send_command("G28")
+                time.sleep(10)
+
             time.sleep(10)
             self.send_command(f"M140 S{bed_temp_target}")
             self.message("Heating bed...")
@@ -164,8 +168,10 @@ class PrinterController:
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(3)
+
             final_z_height = self.fine_probe()
             self.send_command(f"M851 Z-{final_z_height}")
+
             if disable_bed:
                 self.send_command("M140 S0")
                 time.sleep(1)
@@ -175,10 +181,13 @@ class PrinterController:
                     self.send_command("G29 P3")
                     print((["X", "Y"][r]))
                     time.sleep(1)
+
             time.sleep(1)
             self.send_command("M500")
+
             time.sleep(5)
             self.message(f"Probe Z-offset set to: -{final_z_height}")
+
         except serial.SerialException as e:
             print(f"Serial communication error: {e}")
         except Exception as e:
@@ -192,7 +201,8 @@ if __name__ == "__main__":
     parser.add_argument('--bed-temp', type=int, default=DEFAULT_BED_TARGET_TEMP, help='Target bed temperature in Celsius')
     parser.add_argument('--disable-bed', action='store_true', help='Disable bed heating after calibration')
     parser.add_argument('--run-g29', action='store_true', help='Run G29 P1 to repopulate build surface mesh data')
+    parser.add_argument('--skip-homing', action='store_true', help='Skip homing (G28) before calibration')
     args = parser.parse_args()
 
     printer = PrinterController(SERIAL_PORT, BAUD_RATE, TIMEOUT)
-    printer.run(args.bed_temp, args.disable_bed, args.run_g29)
+    printer.run(args.bed_temp, args.disable_bed, args.run_g29, args.skip_homing)
