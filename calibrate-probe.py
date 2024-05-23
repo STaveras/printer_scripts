@@ -131,7 +131,6 @@ class PrinterController:
             while not self.probe_triggered() and self.z_height > 0:
                 self.send_command(f"G1 Z-{FINE_STEP} F50")
                 self.z_height -= FINE_STEP
-                print(self.z_height)
             z_heights.append(self.z_height)
             self.message(f"Z height: {self.z_height}")
             self.send_command(PROBE_STOW_CMD)
@@ -141,7 +140,7 @@ class PrinterController:
 
     def run(self, bed_temp_target, disable_bed, run_g29, skip_homing):
         try:
-            self.message("Starting Z-Probe calibration...")
+            self.message("Starting Z-offset calibration...")
 
             self.get_printer_information()
 
@@ -158,13 +157,17 @@ class PrinterController:
             self.send_command(f"M140 S{bed_temp_target}")
             self.message("Heating bed...")
             self.wait_for_temperature(bed_temp_target)
-            time.sleep(3)
+            time.sleep(1)
+
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(1)
+
             self.send_command(f"G0 F5000 X{center_x} Y{center_y}")
             time.sleep(3)
+
             self.coarse_probe()
+
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
             time.sleep(3)
@@ -175,6 +178,7 @@ class PrinterController:
             if disable_bed:
                 self.send_command("M140 S0")
                 time.sleep(1)
+
             if run_g29:
                 self.send_command("G29 P1", timeout=600) # This is usually around how long it takes for a full repopulate
                 for r in range(2): # For two axes (X, Y)
@@ -186,7 +190,7 @@ class PrinterController:
             self.send_command("M500")
 
             time.sleep(5)
-            self.message(f"Probe Z-offset set to: -{final_z_height}")
+            self.message(f"Z-offset set to: -{final_z_height}")
 
         except serial.SerialException as e:
             print(f"Serial communication error: {e}")
