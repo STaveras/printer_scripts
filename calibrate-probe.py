@@ -102,7 +102,7 @@ class PrinterController:
             time.sleep(1)
 
     def coarse_probe(self):
-        self.message("Starting coarse range check...")
+        self.message("Coarse range check...")
         self.send_command(PROBE_DEPLOY_CMD)
         self.send_command("G91")
         while not self.probe_triggered() and self.z_height > 0:
@@ -120,7 +120,7 @@ class PrinterController:
     def fine_probe(self):
         z_heights = []
         for run in range(3):
-            self.message(f"Starting fine range check (run {run + 1}/3)...")
+            self.message(f"Fine range check (run {run + 1}/3)...")
             self.z_height = self.trigger_height + COARSE_STEP;
             self.send_command("G90")
             self.send_command(f"G0 F500 Z{SAFE_Z_HEIGHT}")
@@ -140,7 +140,7 @@ class PrinterController:
 
     def run(self, bed_temp_target, disable_bed, run_g29, skip_homing):
         try:
-            self.message("Starting Z-offset calibration...")
+            self.message("Calibrating Z-offset...")
 
             self.get_printer_information()
 
@@ -189,8 +189,9 @@ class PrinterController:
             time.sleep(1)
             self.send_command("M500")
 
-            time.sleep(5)
-            self.message(f"Z-offset set to: -{final_z_height}")
+            time.sleep(3)
+            self.message(f"Z-offset Set to: -{final_z_height}")
+            time.sleep(3)
 
         except serial.SerialException as e:
             print(f"Serial communication error: {e}")
